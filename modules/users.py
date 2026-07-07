@@ -75,8 +75,8 @@ def render():
 
         with st.form("form_tambah_user", clear_on_submit=True):
             c1, c2 = st.columns(2)
-            username = c1.text_input("Username *")
-            nama_lengkap = c2.text_input("Nama Lengkap *")
+            username = c1.text_input("Username * (Kosongkan jika ingin auto-generate untuk Wali Santri)")
+            nama_lengkap = c2.text_input("Nama Lengkap * (Kosongkan jika ingin auto-generate untuk Wali Santri)")
             password = c1.text_input("Password *", type="password")
             password2 = c2.text_input("Ulangi Password *", type="password")
 
@@ -102,6 +102,21 @@ def render():
 
             submitted = st.form_submit_button("💾 Simpan Pengguna", use_container_width=True)
             if submitted:
+                if role_baru == "wali_santri" and santri_id:
+                    import re
+                    nama_s = santri_df[santri_df['id']==santri_id]['nama_santri'].values[0]
+                    if not username:
+                        base = re.sub(r'[^a-z0-9]', '', str(nama_s).lower())[:45]
+                        if not base:
+                            base = "ortu"
+                        username = base
+                        counter = 2
+                        while not db.get_user_by_username(username).empty:
+                            username = f"{base}{counter}"
+                            counter += 1
+                    if not nama_lengkap:
+                        nama_lengkap = f"Wali dari {nama_s}"
+
                 if not username or not nama_lengkap or not password:
                     st.warning("Semua field bertanda * wajib diisi.")
                 elif password != password2:
