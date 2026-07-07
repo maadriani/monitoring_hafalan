@@ -1,8 +1,7 @@
 """
 modules/monitoring.py
 =======================
-FITUR: Monitoring Progress Hafalan per Santri
-        (grafik perkembangan nilai & progres jumlah ayat/juz).
+FITUR: Monitoring Progress Hafalan per Santri (Grafik Tren Harian)
 """
 
 import streamlit as st
@@ -11,12 +10,9 @@ import plotly.express as px
 
 import database as db
 
-TOTAL_AYAT_QURAN = 6236
-
-
 def render(scope_kelas: str = None, locked_santri_id: int = None):
-    st.title("📈 Monitoring Progress Hafalan")
-
+    st.title("📈 Monitoring Progres Hafalan")
+    
     santri_df = db.get_all_santri()
     if scope_kelas:
         santri_df = santri_df[santri_df["kelas"] == scope_kelas]
@@ -25,77 +21,58 @@ def render(scope_kelas: str = None, locked_santri_id: int = None):
         st.warning("Belum ada data santri.")
         return
 
+    # Filter santri
     if locked_santri_id is not None:
-        # Wali Santri: tidak ada pilihan, otomatis terkunci ke anaknya sendiri
-        if locked_santri_id not in santri_df["id"].values:
-            st.error("Data santri yang terhubung dengan akun Anda tidak ditemukan.")
-            return
-        santri_id = locked_santri_id
+        pilihan_id = locked_santri_id
+        nama_santri = santri_df[santri_df["id"] == pilihan_id]["nama_santri"].values[0]
+        st.subheader(f"Statistik Hafalan: {nama_santri}")
     else:
-        santri_id = st.selectbox(
+        pilihan_id = st.selectbox(
             "Pilih Santri", santri_df["id"],
-            format_func=lambda x: santri_df[santri_df["id"] == x]["nama"].values[0],
+            format_func=lambda x: santri_df[santri_df["id"] == x]["nama_santri"].values[0]
         )
-    info = santri_df[santri_df["id"] == santri_id].iloc[0]
 
-    riwayat = db.get_hafalan_by_santri(santri_id)
-
-    st.subheader(f"👤 {info['nama']}  ·  Kelas {info['kelas']}")
-    badge = info["kategori_hafalan"] or "Belum Dinilai"
-    warna = {"Lancar": "🟢", "Cukup": "🟡", "Perlu Bimbingan": "🔴", "Belum Dinilai": "⚪"}
-    st.caption(f"{warna.get(badge,'⚪')} Kategori: **{badge}**")
+    # Ambil riwayat hafalan santri terpilih
+    riwayat = db.get_hafalan_by_santri(pilihan_id)
 
     if riwayat.empty:
-        st.info("Santri ini belum memiliki riwayat setoran hafalan.")
+        st.info("Santri ini belum memiliki riwayat setoran (Jiyadah/Murojaah) harian.")
         return
 
+    # Pastikan tipe tanggal
     riwayat["tanggal_setor"] = pd.to_datetime(riwayat["tanggal_setor"])
-    riwayat = riwayat.sort_values("tanggal_setor")
+    riwayat = riwayat.sort_values(by="tanggal_setor")
 
-    # ---------------- METRICS ----------------
-    total_ayat = int(riwayat["jumlah_ayat"].sum())
-    total_setoran = len(riwayat)
-    rata_nilai = round(
-        riwayat[["nilai_kelancaran", "nilai_tajwid", "nilai_makhraj"]].mean().mean(), 1
-    )
-    progres_persen = round((total_ayat / TOTAL_AYAT_QURAN) * 100, 2)
+    col1, col2 = st.columns(2)
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Setoran", total_setoran)
-    c2.metric("Total Ayat Dihafal", total_ayat)
-    c3.metric("Rata-rata Nilai", rata_nilai)
-    c4.metric("Progres Al-Qur'an", f"{progres_persen}%")
+    # GRAFIK 1: Tren Nilai Setoran Harian
+    with col1:
+        st.markdown("##### 📈 Tren Nilai Setoran")
+        fig1 = px.line(
+            riwayat, x="tanggal_setor", y="nilai_setoran", color="jenis_setoran",
+            markers=True, title="Perkembangan Nilai per Setoran",
+            labels={"tanggal_setor": "Tanggal Setor", "nilai_setoran": "Nilai Diberikan", "jenis_setoran": "Jenis"}
+        )
+        fig1.update_traces(
+            hovertemplate="<b>Tanggal: %{x}</b><br>Nilai: %{y} poin<extra></extra>"
+        )
+        st.plotly_chart(fig1, use_container_width=True)
 
-    st.progress(min(progres_persen / 100, 1.0))
-
-    st.divider()
-
-    # ---------------- GRAFIK PERKEMBANGAN NILAI ----------------
-    st.subheader("Grafik Perkembangan Nilai")
-    fig = px.line(
-        riwayat,
-        x="tanggal_setor",
-        y=["nilai_kelancaran", "nilai_tajwid", "nilai_makhraj"],
-        markers=True,
-        labels={"value": "Nilai", "tanggal_setor": "Tanggal", "variable": "Aspek"},
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    # ---------------- GRAFIK DURASI & KESALAHAN ----------------
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.subheader("Durasi Setor per Sesi (menit)")
-        st.bar_chart(riwayat.set_index("tanggal_setor")["durasi_menit"])
-    with col_b:
-        st.subheader("Jumlah Kesalahan per Sesi")
-        st.bar_chart(riwayat.set_index("tanggal_setor")["jumlah_kesalahan"])
+    # GRAFIK 2: Jumlah Ayat (Jiyadah vs Murojaah)
+    with col2:
+        st.markdown("##### 📊 Jumlah Ayat Disetor")
+        fig2 = px.bar(
+            riwayat, x="tanggal_setor", y="jumlah_ayat", color="jenis_setoran",
+            title="Volume Hafalan per Hari", barmode="group",
+            labels={"tanggal_setor": "Tanggal Setor", "jumlah_ayat": "Jumlah Ayat Disetor", "jenis_setoran": "Jenis"},
+            text_auto=True
+        )
+        fig2.update_traces(
+            hovertemplate="<b>Tanggal: %{x}</b><br>Disetor: %{y} Ayat<extra></extra>"
+        )
+        st.plotly_chart(fig2, use_container_width=True)
 
     st.divider()
     st.subheader("📜 Riwayat Setoran Lengkap")
-    st.dataframe(
-        riwayat[["tanggal_setor", "surah", "juz", "ayat_mulai", "ayat_selesai",
-                 "nilai_kelancaran", "nilai_tajwid", "nilai_makhraj",
-                 "durasi_menit", "jumlah_kesalahan", "status_setoran", "catatan"]],
-        use_container_width=True,
-        hide_index=True,
-    )
+    tampil = riwayat[["tanggal_setor", "jenis_setoran", "surah", "jumlah_ayat", "nilai_setoran", "catatan"]]
+    st.dataframe(tampil, use_container_width=True, hide_index=True)

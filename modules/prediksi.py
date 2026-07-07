@@ -1,214 +1,153 @@
 """
 modules/prediksi.py
 =====================
-FITUR: Prediksi Kategori Hafalan Santri menggunakan Random Forest.
-
-Cara kerja:
-1. Fitur diambil dari agregasi riwayat hafalan tiap santri:
-   jumlah_setoran, avg_kelancaran, avg_tajwid, avg_makhraj,
-   avg_durasi, avg_kesalahan, total_ayat.
-2. Label (target) = kolom santri.kategori_hafalan yang diisi MANUAL
-   oleh ustadz/ustadzah (lihat menu Data Santri -> tab "Beri Label").
-3. Model dilatih dari santri yang SUDAH berlabel, lalu dipakai untuk
-   memprediksi kategori santri yang BELUM berlabel.
-4. Tersedia juga simulasi prediksi manual (input nilai bebas).
+FITUR: Prediksi Estimasi Hari Selesai Hafalan Santri menggunakan Random Forest Regressor.
 """
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.preprocessing import LabelEncoder
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import plotly.express as px
+import numpy as np
 
 import database as db
 
-FITUR_KOLOM = [
-    "jumlah_setoran", "avg_kelancaran", "avg_tajwid",
-    "avg_makhraj", "avg_durasi", "avg_kesalahan", "total_ayat",
-]
-
-MIN_SAMPLE_TRAINING = 4  # minimal jumlah santri berlabel agar model layak dilatih
-
-
 def render():
-    st.title("🌲 Prediksi Kategori Hafalan (Random Forest)")
-    st.caption(
-        "Model Random Forest memprediksi kategori hafalan santri "
-        "(*Lancar / Cukup / Perlu Bimbingan*) berdasarkan riwayat penilaian setoran."
-    )
+    st.title("🌲 Model AI (Random Forest Regressor)")
+    st.caption("Latih model dan prediksi estimasi hari selesai hafalan santri secara otomatis.")
 
-    data = db.get_fitur_agregat_santri()
-    if data.empty:
-        st.warning("Belum ada data santri.")
+    # Ambil data dari tabel santri
+    df_raw = db.get_fitur_agregat_santri()
+
+    if df_raw.empty or len(df_raw) < 10:
+        st.warning("Data santri belum cukup untuk melatih model AI. Minimal butuh 10 data.")
         return
 
-    berlabel = data[data["kategori_hafalan"].notna()].copy()
-    belum_label = data[data["kategori_hafalan"].isna()].copy()
+    st.markdown("### 1. Data Dataset (Preview)")
+    st.dataframe(df_raw.head(5), use_container_width=True)
 
-    st.info(
-        f"📌 Data santri **berlabel** (untuk training): **{len(berlabel)}**  |  "
-        f"Data santri **belum berlabel** (akan diprediksi): **{len(belum_label)}**"
-    )
+    # ---------------------------------------------------------
+    # PREPROCESSING DATA
+    # ---------------------------------------------------------
+    df = df_raw.copy()
+    
+    # Fitur X dan Target Y
+    X_cols = [
+        "rata_jiyadah", 
+        "frekuensi_minggu", 
+        "total_hafalan", 
+        "target_hafalan_ayat",
+        "target_hafalan_juz",
+        "rata_nilai"
+    ]
+    
+    # Kita buat dummy untuk categorical jika diperlukan, tapi fitur numerik utama sudah cukup
+    # Encode kelas (opsional)
+    df["kelas_encoded"] = df["kelas"].astype("category").cat.codes
+    X_cols.append("kelas_encoded")
+    
+    # Cek nilai kosong
+    for col in X_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-    if len(berlabel) < MIN_SAMPLE_TRAINING:
-        st.error(
-            f"Minimal {MIN_SAMPLE_TRAINING} santri perlu diberi label kategori hafalan "
-            f"secara manual dahulu (menu **Data Santri** > tab **Edit/Hapus/Beri Label**) "
-            f"sebelum model Random Forest bisa dilatih. Saat ini baru {len(berlabel)} santri berlabel."
-        )
+    # Pisahkan data yang sudah punya label dan yang belum
+    df_labeled = df.dropna(subset=["estimasi_hari_selesai"]).copy()
+    df_unlabeled = df[df["estimasi_hari_selesai"].isna()].copy()
+
+    if len(df_labeled) < 5:
+        st.error("Data berlabel (Estimasi Hari Selesai) kurang dari 5. Tidak bisa melatih model.")
         return
 
-    if berlabel["kategori_hafalan"].nunique() < 2:
-        st.error("Minimal harus ada 2 kategori berbeda pada data berlabel agar model dapat dilatih.")
-        return
+    st.markdown(f"**Total Data Training:** {len(df_labeled)} baris | **Data Menunggu Prediksi:** {len(df_unlabeled)} baris")
 
-    # ------------------------------------------------------------
+    # ---------------------------------------------------------
     # TRAINING MODEL
-    # ------------------------------------------------------------
-    tab1, tab2, tab3 = st.tabs(
-        ["🧠 Training & Evaluasi Model", "🔮 Prediksi Santri Belum Berlabel", "✍️ Simulasi Prediksi Manual"]
-    )
+    # ---------------------------------------------------------
+    X = df_labeled[X_cols]
+    y = df_labeled["estimasi_hari_selesai"]
 
-    X = berlabel[FITUR_KOLOM]
-    y_raw = berlabel["kategori_hafalan"]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    encoder = LabelEncoder()
-    y = encoder.fit_transform(y_raw)
+    rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+    rf_model.fit(X_train, y_train)
 
-    test_size = 0.2 if len(berlabel) >= 15 else max(1 / len(berlabel), 0.15)
+    y_pred = rf_model.predict(X_test)
 
-    with tab1:
-        c1, c2 = st.columns(2)
-        n_estimators = c1.slider("Jumlah Trees (n_estimators)", 50, 300, 100, step=50)
-        max_depth = c2.slider("Kedalaman Maksimal (max_depth)", 2, 20, 6)
+    mae = mean_absolute_error(y_test, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    r2 = r2_score(y_test, y_pred)
 
-        if st.button("🚀 Latih Model Random Forest", type="primary"):
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=test_size, random_state=42,
-                stratify=y if min(pd.Series(y).value_counts()) > 1 else None,
-            )
+    st.markdown("### 2. Evaluasi Model AI")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("📉 Mean Absolute Error (MAE)", f"{mae:.2f} Hari")
+    col2.metric("📉 Root Mean Squared Error (RMSE)", f"{rmse:.2f} Hari")
+    col3.metric("📊 R² Score (Akurasi Regresi)", f"{r2:.2f}")
 
-            model = RandomForestClassifier(
-                n_estimators=n_estimators, max_depth=max_depth, random_state=42
-            )
-            model.fit(X_train, y_train)
+    with st.expander("Lihat Detail & Grafik Evaluasi"):
+        eval_df = pd.DataFrame({"Data Aktual (Hari)": y_test, "Prediksi (Hari)": y_pred})
+        fig = px.scatter(
+            eval_df, x="Data Aktual (Hari)", y="Prediksi (Hari)", 
+            title="Akurasi Tebakan AI (Aktual vs Prediksi)",
+            labels={"Data Aktual (Hari)": "Hari Seharusnya (Kenyataan)", "Prediksi (Hari)": "Tebakan AI (Prediksi)"}
+        )
+        fig.update_traces(
+            hovertemplate="<b>Kenyataan: %{x} Hari</b><br>AI Menebak: %{y} Hari<extra></extra>",
+            marker=dict(size=10, opacity=0.7)
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-            y_pred = model.predict(X_test)
-            akurasi = accuracy_score(y_test, y_pred)
+        feature_imp = pd.Series(rf_model.feature_importances_, index=X_cols).sort_values(ascending=True)
+        # Ubah nama kolom agar lebih enak dibaca awam
+        nama_ramah = {
+            "rata_jiyadah": "Kecepatan Hafal (Jiyadah)",
+            "frekuensi_minggu": "Rajin Setoran (Frekuensi)",
+            "total_hafalan": "Total Ayat Dihafal",
+            "target_hafalan_ayat": "Target Ayat",
+            "target_hafalan_juz": "Target Juz",
+            "rata_nilai": "Kualitas Hafalan (Nilai)"
+        }
+        feature_imp.index = [nama_ramah.get(i, i) for i in feature_imp.index]
 
-            st.session_state["rf_model"] = model
-            st.session_state["rf_encoder"] = encoder
+        fig_imp = px.bar(
+            feature_imp, x=feature_imp.values, y=feature_imp.index, orientation='h',
+            title="Faktor Apa Saja yang Paling Mempengaruhi Cepat/Lambatnya Anak Khatam?",
+            labels={"x": "Persentase Pengaruh (0 - 1)", "y": "Faktor / Fitur"}
+        )
+        fig_imp.update_traces(
+            hovertemplate="<b>Faktor: %{y}</b><br>Tingkat Pengaruh: %{x:.2f}<extra></extra>"
+        )
+        st.plotly_chart(fig_imp, use_container_width=True)
 
-            st.success(f"✅ Model berhasil dilatih. Akurasi pada data uji: **{akurasi*100:.1f}%**")
+    # ---------------------------------------------------------
+    # PREDIKSI MASSAL (AUTO-FILL)
+    # ---------------------------------------------------------
+    st.markdown("### 3. Prediksi Estimasi untuk Data Baru")
+    if not df_unlabeled.empty:
+        st.info(f"Ada {len(df_unlabeled)} santri yang kolom 'Estimasi Hari Selesai'-nya masih kosong.")
+        if st.button("🚀 Prediksi Sekarang & Simpan", type="primary"):
+            X_new = df_unlabeled[X_cols]
+            pred_new = rf_model.predict(X_new)
+            
+            # Simpan ke DB
+            with st.spinner("Menyimpan hasil prediksi ke database..."):
+                for idx, row in df_unlabeled.iterrows():
+                    santri_id = row["id"]
+                    pred_val = int(pred_new[df_unlabeled.index.get_loc(idx)])
+                    db.update_estimasi_selesai(santri_id, pred_val)
+                    db.insert_prediksi_log(santri_id, pred_val)
+                    
+            st.success("Semua data berhasil diprediksi dan disimpan!")
+            st.rerun()
+    else:
+        st.success("✨ Semua data santri saat ini sudah memiliki nilai Prediksi Estimasi Khatam.")
 
-            colx, coly = st.columns(2)
-            with colx:
-                st.markdown("##### Laporan Klasifikasi")
-                report = classification_report(
-                    y_test, y_pred, target_names=encoder.classes_,
-                    output_dict=True, zero_division=0,
-                )
-                st.dataframe(pd.DataFrame(report).transpose().round(2), use_container_width=True)
-
-            with coly:
-                st.markdown("##### Confusion Matrix")
-                cm = confusion_matrix(y_test, y_pred)
-                fig_cm = px.imshow(
-                    cm, text_auto=True, x=encoder.classes_, y=encoder.classes_,
-                    labels=dict(x="Prediksi", y="Aktual"), color_continuous_scale="Blues",
-                )
-                st.plotly_chart(fig_cm, use_container_width=True)
-
-            st.markdown("##### 📊 Feature Importance")
-            importance = pd.DataFrame({
-                "Fitur": FITUR_KOLOM,
-                "Importance": model.feature_importances_,
-            }).sort_values("Importance", ascending=False)
-            fig_imp = px.bar(importance, x="Importance", y="Fitur", orientation="h")
-            st.plotly_chart(fig_imp, use_container_width=True)
-
-        elif "rf_model" in st.session_state:
-            st.info("Model dari sesi sebelumnya masih aktif. Klik tombol di atas untuk melatih ulang.")
-
-    # ------------------------------------------------------------
-    # PREDIKSI SANTRI BELUM BERLABEL
-    # ------------------------------------------------------------
-    with tab2:
-        if "rf_model" not in st.session_state:
-            st.warning("Latih model terlebih dahulu di tab **Training & Evaluasi Model**.")
-        elif belum_label.empty:
-            st.success("🎉 Semua santri sudah memiliki label kategori hafalan.")
-        else:
-            model = st.session_state["rf_model"]
-            encoder = st.session_state["rf_encoder"]
-
-            X_baru = belum_label[FITUR_KOLOM]
-            pred = model.predict(X_baru)
-            proba = model.predict_proba(X_baru)
-
-            hasil = belum_label[["santri_id", "nama", "kelas"]].copy()
-            hasil["Prediksi Kategori"] = encoder.inverse_transform(pred)
-            hasil["Probabilitas"] = proba.max(axis=1).round(3)
-
-            st.dataframe(hasil, use_container_width=True, hide_index=True)
-
-            if st.button("💾 Simpan Semua Hasil Prediksi ke Log"):
-                for _, row in hasil.iterrows():
-                    db.insert_prediksi_log(
-                        row["santri_id"], row["Prediksi Kategori"], row["Probabilitas"]
-                    )
-                st.success("Hasil prediksi berhasil disimpan ke tabel prediksi_log.")
-
-    # ------------------------------------------------------------
-    # SIMULASI PREDIKSI MANUAL
-    # ------------------------------------------------------------
-    with tab3:
-        if "rf_model" not in st.session_state:
-            st.warning("Latih model terlebih dahulu di tab **Training & Evaluasi Model**.")
-        else:
-            st.caption("Masukkan nilai hipotetis untuk melihat prediksi kategori hafalan.")
-            c1, c2 = st.columns(2)
-            jumlah_setoran = c1.number_input("Jumlah Setoran", 0, 500, 20)
-            avg_kelancaran = c2.slider("Rata-rata Kelancaran", 0, 100, 80)
-            avg_tajwid = c1.slider("Rata-rata Tajwid", 0, 100, 80)
-            avg_makhraj = c2.slider("Rata-rata Makhraj", 0, 100, 80)
-            avg_durasi = c1.number_input("Rata-rata Durasi (menit)", 1, 120, 10)
-            avg_kesalahan = c2.number_input("Rata-rata Jumlah Kesalahan", 0, 50, 2)
-            total_ayat = c1.number_input("Total Ayat Dihafal", 0, 6236, 100)
-
-            if st.button("🔮 Prediksi Sekarang", type="primary"):
-                model = st.session_state["rf_model"]
-                encoder = st.session_state["rf_encoder"]
-                input_df = pd.DataFrame([{
-                    "jumlah_setoran": jumlah_setoran,
-                    "avg_kelancaran": avg_kelancaran,
-                    "avg_tajwid": avg_tajwid,
-                    "avg_makhraj": avg_makhraj,
-                    "avg_durasi": avg_durasi,
-                    "avg_kesalahan": avg_kesalahan,
-                    "total_ayat": total_ayat,
-                }])
-                pred = model.predict(input_df)[0]
-                proba = model.predict_proba(input_df)[0]
-                kategori = encoder.inverse_transform([pred])[0]
-
-                warna = {"Lancar": "success", "Cukup": "warning", "Perlu Bimbingan": "error"}
-                getattr(st, warna.get(kategori, "info"))(
-                    f"Hasil Prediksi: **{kategori}** (probabilitas: {proba.max()*100:.1f}%)"
-                )
-
-                proba_df = pd.DataFrame({"Kategori": encoder.classes_, "Probabilitas": proba})
-                st.bar_chart(proba_df.set_index("Kategori"))
-
-    # ------------------------------------------------------------
-    # RIWAYAT LOG PREDIKSI
-    # ------------------------------------------------------------
     st.divider()
-    with st.expander("🗂️ Riwayat Log Prediksi Tersimpan"):
-        log_df = db.get_prediksi_log()
-        if log_df.empty:
-            st.info("Belum ada log prediksi yang tersimpan.")
-        else:
-            st.dataframe(log_df, use_container_width=True, hide_index=True)
+    st.markdown("### 📜 Log / Riwayat Prediksi Terbaru")
+    log_df = db.get_prediksi_log()
+    if not log_df.empty:
+        st.dataframe(log_df.head(20)[["tanggal_prediksi", "nama_santri", "kelas", "estimasi_hari_prediksi"]],
+                     use_container_width=True, hide_index=True)
+    else:
+        st.caption("Belum ada riwayat prediksi.")

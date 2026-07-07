@@ -1,12 +1,11 @@
 """
 modules/hafalan.py
 ====================
-FITUR: Input Setoran Hafalan & Riwayat Setoran.
+FITUR: Input Setoran Hafalan Harian (Jiyadah & Murojaah).
 """
 
 import streamlit as st
 from datetime import date
-
 import database as db
 
 DAFTAR_SURAH = [
@@ -21,9 +20,9 @@ DAFTAR_SURAH = [
     "Al-Waqi'ah", "Al-Mulk", "Lainnya (ketik manual)",
 ]
 
-
 def render(scope_kelas: str = None):
-    st.title("📥 Input Setoran Hafalan")
+    st.title("📥 Input Setoran Harian")
+    st.caption("Pilih jenis setoran: Jiyadah (Hafalan Baru) atau Murojaah (Pengulangan).")
 
     santri_df = db.get_all_santri()
     if scope_kelas:
@@ -31,7 +30,7 @@ def render(scope_kelas: str = None):
         st.caption(f"Menampilkan data untuk kelas: **{scope_kelas}**")
 
     if santri_df.empty:
-        st.warning("Tambahkan data santri terlebih dahulu di menu **Data Santri**.")
+        st.warning("Tambahkan data santri terlebih dahulu di menu **Profil Santri**.")
         return
 
     tab1, tab2 = st.tabs(["➕ Input Setoran Baru", "📜 Riwayat Setoran"])
@@ -43,47 +42,38 @@ def render(scope_kelas: str = None):
         with st.form("form_hafalan", clear_on_submit=True):
             santri_id = st.selectbox(
                 "Pilih Santri", santri_df["id"],
-                format_func=lambda x: santri_df[santri_df["id"] == x]["nama"].values[0],
+                format_func=lambda x: santri_df[santri_df["id"] == x]["nama_santri"].values[0],
             )
 
-            c1, c2, c3 = st.columns(3)
+            c_jenis, c_tgl = st.columns(2)
+            jenis_setoran = c_jenis.selectbox("Jenis Setoran", ["Jiyadah", "Murojaah"])
+            tanggal_setor = c_tgl.date_input("Tanggal Setor", value=date.today())
+
+            c1, c2 = st.columns(2)
             surah = c1.selectbox("Surah", DAFTAR_SURAH)
             if surah == "Lainnya (ketik manual)":
                 surah = c1.text_input("Nama Surah Manual")
-            juz = c2.number_input("Juz", min_value=1, max_value=30, value=1)
-            tanggal_setor = c3.date_input("Tanggal Setor", value=date.today())
-
-            c4, c5 = st.columns(2)
-            ayat_mulai = c4.number_input("Ayat Mulai", min_value=1, value=1)
-            ayat_selesai = c5.number_input("Ayat Selesai", min_value=1, value=5)
+            
+            jumlah_ayat = c2.number_input("Jumlah Ayat Disetor", min_value=1, value=5)
 
             st.markdown("##### Penilaian (skala 0 - 100)")
-            c6, c7, c8 = st.columns(3)
-            nilai_kelancaran = c6.slider("Kelancaran", 0, 100, 80)
-            nilai_tajwid = c7.slider("Tajwid", 0, 100, 80)
-            nilai_makhraj = c8.slider("Makhrajul Huruf", 0, 100, 80)
-
-            c9, c10 = st.columns(2)
-            durasi_menit = c9.number_input("Durasi Setor (menit)", min_value=1, value=10)
-            jumlah_kesalahan = c10.number_input("Jumlah Kesalahan", min_value=0, value=0)
-
-            status_setoran = st.selectbox("Status Setoran", ["Lulus", "Mengulang", "Belum Lancar"])
+            nilai_setoran = st.slider("Nilai Setoran", 0, 100, 80)
             catatan = st.text_area("Catatan Ustadz/Ustadzah (opsional)")
 
             submitted = st.form_submit_button("💾 Simpan Setoran", use_container_width=True)
             if submitted:
-                if ayat_selesai < ayat_mulai:
-                    st.error("Ayat selesai tidak boleh kurang dari ayat mulai.")
-                else:
-                    ok = db.insert_hafalan(
-                        santri_id, surah, juz, ayat_mulai, ayat_selesai,
-                        tanggal_setor, nilai_kelancaran, nilai_tajwid,
-                        nilai_makhraj, durasi_menit, jumlah_kesalahan,
-                        status_setoran, catatan,
-                    )
-                    if ok:
-                        st.success("Setoran hafalan berhasil disimpan ✅")
-                        st.rerun()
+                ok = db.insert_hafalan(
+                    santri_id=santri_id, 
+                    jenis_setoran=jenis_setoran, 
+                    surah=surah, 
+                    jumlah_ayat=jumlah_ayat,
+                    tanggal_setor=tanggal_setor, 
+                    nilai_setoran=nilai_setoran, 
+                    catatan=catatan
+                )
+                if ok:
+                    st.success("Setoran hafalan berhasil disimpan ✅")
+                    st.rerun()
 
     # ------------------------------------------------------------
     # TAB 2: RIWAYAT SETORAN
@@ -100,9 +90,8 @@ def render(scope_kelas: str = None):
         tampil = df if not nama_filter else df[df["nama_santri"].isin(nama_filter)]
 
         st.dataframe(
-            tampil[["id", "nama_santri", "kelas", "surah", "juz", "ayat_mulai",
-                    "ayat_selesai", "tanggal_setor", "nilai_kelancaran",
-                    "nilai_tajwid", "nilai_makhraj", "status_setoran"]],
+            tampil[["id", "nama_santri", "kelas", "jenis_setoran", "surah", "jumlah_ayat",
+                    "tanggal_setor", "nilai_setoran", "catatan"]],
             use_container_width=True,
             hide_index=True,
         )
