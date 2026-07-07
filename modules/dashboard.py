@@ -55,6 +55,7 @@ def render(scope_kelas: str = None):
             values=kategori_count.values,
             hole=0.4,
             color=kategori_count.index,
+            color_discrete_sequence=["#2B5748", "#618764", "#9CB080", "#273338"],
         )
         
         # Kustomisasi teks yang muncul saat mouse diarahkan (Tooltip Hover)
@@ -62,6 +63,11 @@ def render(scope_kelas: str = None):
             hovertemplate="<b>Estimasi: %{label}</b><br>Jumlah: %{value} Santri<br>Persentase: %{percent}<extra></extra>",
             textinfo="percent+label",
             textfont_size=14
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#273338")
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -84,9 +90,15 @@ def render(scope_kelas: str = None):
             title="Perbandingan Nilai Rata-rata Antar Kelas",
             labels={"kelas": "Nama Kelas", "rata_nilai": "Nilai Rata-rata"},
             color="kelas",
+            color_discrete_sequence=["#2B5748", "#618764", "#9CB080", "#273338"],
             text_auto='.1f' # Menampilkan angka di atas batang
         )
         fig2.update_traces(
             hovertemplate="<b>Kelas: %{x}</b><br>Nilai Rata-rata: %{y:.1f}<extra></extra>"
+        )
+        fig2.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#273338")
         )
         st.plotly_chart(fig2, use_container_width=True)

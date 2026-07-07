@@ -47,10 +47,10 @@ def pd_isna(value) -> bool:
 def render_login():
     """Menampilkan form login. Dipanggil dari app.py jika belum login."""
     st.markdown(
-        "<h1 style='text-align:center;'>📖 Monitoring Hafalan Al-Qur'an</h1>",
+        "<h1 style='text-align:center; color:#2B5748;'>📖 Monitoring Hafalan Al-Qur'an</h1>",
         unsafe_allow_html=True,
     )
-    st.markdown("<p style='text-align:center;'>Silakan login untuk melanjutkan</p>",
+    st.markdown("<p style='text-align:center; color:#618764; font-weight:500;'>Silakan login untuk melanjutkan</p>",
                 unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 1.2, 1])

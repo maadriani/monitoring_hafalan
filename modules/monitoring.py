@@ -51,10 +51,16 @@ def render(scope_kelas: str = None, locked_santri_id: int = None):
         fig1 = px.line(
             riwayat, x="tanggal_setor", y="nilai_setoran", color="jenis_setoran",
             markers=True, title="Perkembangan Nilai per Setoran",
-            labels={"tanggal_setor": "Tanggal Setor", "nilai_setoran": "Nilai Diberikan", "jenis_setoran": "Jenis"}
+            labels={"tanggal_setor": "Tanggal Setor", "nilai_setoran": "Nilai Diberikan", "jenis_setoran": "Jenis"},
+            color_discrete_sequence=["#2B5748", "#618764", "#9CB080", "#273338"],
         )
         fig1.update_traces(
             hovertemplate="<b>Tanggal: %{x}</b><br>Nilai: %{y} poin<extra></extra>"
+        )
+        fig1.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#273338")
         )
         st.plotly_chart(fig1, use_container_width=True)
 
@@ -65,10 +71,16 @@ def render(scope_kelas: str = None, locked_santri_id: int = None):
             riwayat, x="tanggal_setor", y="jumlah_ayat", color="jenis_setoran",
             title="Volume Hafalan per Hari", barmode="group",
             labels={"tanggal_setor": "Tanggal Setor", "jumlah_ayat": "Jumlah Ayat Disetor", "jenis_setoran": "Jenis"},
-            text_auto=True
+            text_auto=True,
+            color_discrete_sequence=["#618764", "#2B5748", "#9CB080", "#273338"],
         )
         fig2.update_traces(
             hovertemplate="<b>Tanggal: %{x}</b><br>Disetor: %{y} Ayat<extra></extra>"
+        )
+        fig2.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#273338")
         )
         st.plotly_chart(fig2, use_container_width=True)
 

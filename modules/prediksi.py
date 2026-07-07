@@ -90,11 +90,17 @@ def render():
         fig = px.scatter(
             eval_df, x="Data Aktual (Hari)", y="Prediksi (Hari)", 
             title="Akurasi Tebakan AI (Aktual vs Prediksi)",
-            labels={"Data Aktual (Hari)": "Hari Seharusnya (Kenyataan)", "Prediksi (Hari)": "Tebakan AI (Prediksi)"}
+            labels={"Data Aktual (Hari)": "Hari Seharusnya (Kenyataan)", "Prediksi (Hari)": "Tebakan AI (Prediksi)"},
+            color_discrete_sequence=["#2B5748"],
         )
         fig.update_traces(
             hovertemplate="<b>Kenyataan: %{x} Hari</b><br>AI Menebak: %{y} Hari<extra></extra>",
             marker=dict(size=10, opacity=0.7)
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#273338")
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -113,10 +119,16 @@ def render():
         fig_imp = px.bar(
             feature_imp, x=feature_imp.values, y=feature_imp.index, orientation='h',
             title="Faktor Apa Saja yang Paling Mempengaruhi Cepat/Lambatnya Anak Khatam?",
-            labels={"x": "Persentase Pengaruh (0 - 1)", "y": "Faktor / Fitur"}
+            labels={"x": "Persentase Pengaruh (0 - 1)", "y": "Faktor / Fitur"},
+            color_discrete_sequence=["#618764"],
         )
         fig_imp.update_traces(
             hovertemplate="<b>Faktor: %{y}</b><br>Tingkat Pengaruh: %{x:.2f}<extra></extra>"
+        )
+        fig_imp.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#273338")
         )
         st.plotly_chart(fig_imp, use_container_width=True)
 
