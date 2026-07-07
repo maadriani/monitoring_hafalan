@@ -21,7 +21,10 @@ st.set_page_config(
 # -----------------------------------------------------------------------------
 CUSTOM_CSS = """
 <style>
-    /* Global Typography & Headers */
+    /* Global Main Background Putih & Typography */
+    [data-testid="stAppViewContainer"] {
+        background-color: #FFFFFF !important;
+    }
     h1, h2, h3 {
         color: #273338 !important;
         font-family: 'Inter', sans-serif;
@@ -66,13 +69,32 @@ CUSTOM_CSS = """
         font-weight: 700 !important;
     }
     
-    /* Sidebar Styling Accents */
+    /* Sidebar Styling Accents ("Bar Fitur" Hijau Elegan) */
     section[data-testid="stSidebar"] {
-        border-right: 2px solid #9CB080 !important;
+        background-color: #2B5748 !important;
+        border-right: 3px solid #618764 !important;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #FFFFFF !important;
     }
     section[data-testid="stSidebar"] .stRadio label span {
-        color: #273338 !important;
+        color: #FFFFFF !important;
         font-weight: 500 !important;
+        font-size: 15px !important;
+    }
+    section[data-testid="stSidebar"] hr {
+        border-color: rgba(255, 255, 255, 0.3) !important;
+    }
+    section[data-testid="stSidebar"] div.stButton > button {
+        background-color: #D32F2F !important;
+        color: #FFFFFF !important;
+        border: 1px solid #FFCDD2 !important;
+        font-weight: bold !important;
+    }
+    section[data-testid="stSidebar"] div.stButton > button:hover {
+        background-color: #B71C1C !important;
+        border-color: #FFFFFF !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
     }
     
     /* Dividers and Expanders */
