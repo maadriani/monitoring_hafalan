@@ -10,13 +10,14 @@ import mysql.connector
 from mysql.connector import Error
 import pandas as pd
 import streamlit as st
+import os
 
 DB_CONFIG = {
-    "host": st.secrets["DB_HOST"],
-    "port": int(st.secrets["DB_PORT"]),
-    "user": st.secrets["DB_USER"],
-    "password": st.secrets["DB_PASSWORD"],
-    "database": st.secrets["DB_NAME"],
+    "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT")),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
 }
 
 def get_connection():
