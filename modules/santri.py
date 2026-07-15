@@ -31,10 +31,11 @@ def render(role: str, scope_kelas: str = None):
             if cari:
                 df = df[df["nama_santri"].str.contains(cari, case=False, na=False)]
 
+            # FIX: "estimasi_hari_selesai" telah dihapus dari list ini
             kolom_tampil = [
                 "id", "nis", "nama_santri", "kelas", "rata_jiyadah", 
                 "frekuensi_minggu", "total_hafalan", "target_hafalan_ayat",
-                "hafalan_surat", "target_hafalan_juz", "rata_nilai", "estimasi_hari_selesai"
+                "hafalan_surat", "target_hafalan_juz", "rata_nilai"
             ]
             st.dataframe(df[kolom_tampil], use_container_width=True, hide_index=True)
 
@@ -126,7 +127,8 @@ def render(role: str, scope_kelas: str = None):
                 e_target_juz = c9.number_input("Target Hafalan (Juz)", min_value=1, max_value=30, value=int(row["target_hafalan_juz"]))
                 e_rata_nilai = c10.number_input("Rata-rata Nilai Setoran", min_value=0, max_value=100, value=int(row["rata_nilai"]))
 
-                e_estimasi = row["estimasi_hari_selesai"]
+                # FIX AMAN: Menggunakan .get() agar jika kolom tidak ada di database, nilainya otomatis None (tidak crash)
+                e_estimasi = row.get("estimasi_hari_selesai", None)
 
                 submitted = st.form_submit_button("💾 Update Data", use_container_width=True)
                 if submitted:

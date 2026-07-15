@@ -156,7 +156,7 @@ MENU_PER_ROLE = {
 }
 
 with st.sidebar:
-    st.title("📖 Monitoring Hafalan")
+    st.title("📖 Monitoring Hafalan Al-Qur'an")
     st.caption("Aplikasi Hybrid: Operasional + Prediksi AI")
 
     st.markdown(f"**{ROLE_LABEL.get(role, role)}**")

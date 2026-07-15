@@ -54,8 +54,7 @@ def render(scope_kelas: str = None):
             names=kategori_count.index,
             values=kategori_count.values,
             hole=0.4,
-            color=kategori_count.index,
-            color_discrete_sequence=["#2B5748", "#618764", "#9CB080", "#273338"],
+            color_discrete_sequence=["#2B5748", "#618764", "#9CB080", "#273338", "#b0c8a0"],
         )
         
         # Kustomisasi teks yang muncul saat mouse diarahkan (Tooltip Hover)

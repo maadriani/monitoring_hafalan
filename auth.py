@@ -8,6 +8,7 @@ Password disimpan di database dalam bentuk HASH (bcrypt), tidak pernah
 dalam bentuk plain text.
 """
 
+import os
 import streamlit as st
 import bcrypt
 
@@ -111,21 +112,37 @@ def render_login():
         border: 1px solid rgba(43, 87, 72, 0.2) !important;
         border-radius: 16px !important;
         margin-top: 15px !important;
-    }}
-    </style>
+    /* Streamlit Login Container Styling */
     """
     
     if bg_base64:
         st.markdown(css_style, unsafe_allow_html=True)
 
-    # Header Text
+    # Header Text & Logo
+    logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "asset", "reading.png"))
+    logo_base64 = get_base64_image(logo_path)
+    
+    if logo_base64:
+        st.markdown(
+            f"""
+            <div style='display: flex; justify-content: center; align-items: center; width: 100%; margin-bottom: 10px;'>
+                <img src='data:image/png;base64,{logo_base64}' width='100'>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    
     st.markdown(
-        "<h1 style='text-align:center; color:#2B5748; text-shadow: 0 2px 10px rgba(255,255,255,0.9); font-size: 2.5rem; margin-bottom: 0;'>📖 Monitoring Hafalan</h1>",
+        """
+        <div style="width: 100%; text-align: center;">
+            <h1 style="margin: 0; padding: 0; font-size: 2.8rem; font-weight: 800;">
+                <span style="color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0px 0px 10px rgba(255,255,255,0.2);">
+                    Monitoring Hafalan Al-Qur'an
+                </span>
+            </h1>
+        </div>
+        """,
         unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<h3 style='text-align:center; color:#1B3B2B; font-weight:600; margin-top: 0; text-shadow: 0 1px 5px rgba(255,255,255,0.8);'>Al-Qur'an</h3>",
-        unsafe_allow_html=True
     )
     st.markdown("<br>", unsafe_allow_html=True)
 
