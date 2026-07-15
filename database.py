@@ -12,11 +12,11 @@ import pandas as pd
 import streamlit as st
 
 DB_CONFIG = {
-    "host": "localhost",
-    "port": 3306,
-    "user": "root",
-    "password": "",
-    "database": "db_hafalan_quran",
+    "host": st.secrets["DB_HOST"],
+    "port": int(st.secrets["DB_PORT"]),
+    "user": st.secrets["DB_USER"],
+    "password": st.secrets["DB_PASSWORD"],
+    "database": st.secrets["DB_NAME"],
 }
 
 def get_connection():
